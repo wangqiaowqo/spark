@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <script type="text/javascript" src="js/forces.js"></script>
+    <script type="text/javascript" src="js/vector.js"></script>
+    <script type="text/javascript" src="js/spark.js"></script>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <script type="text/javascript">
+    var canvas = document.getElementById('canvas');
+    var context = canvas.getContext('2d');
+
+    var particles = new Array();
+    //重力加速度
+    var g = 10;
+    //阻力常数
+    var k = 0.005;
+    //速度初始值
+    var vx = 100;
+    var vy = -100;
+    //烟花爆炸生成小烟花个数
+    var numSparks = 10;
+    //烟花生命周期区间
+    var minLife = 2;
+    var maxLife = 4;
+    //持续时间
+    var duration = 6;
+    //帧率
+    var fps = 30;
+    //t0前一帧时间，dt与前一帧间隔时长，t运行总时长
+    var t0, t, dt;
+
+    window.onload = init;
+
+    function init() {
+        var posEmitter = new Vector2D(0.5 * canvas.width, 0.5 * canvas.height);
+        createNewParticles(posEmitter, 0, 0, 0);
+        t0 = new Date().getTime();
+        t = 0;
+        animFrame();
+    }
+
+    function animFrame() {
+        setTimeout(function() {
+            animId = requestAnimationFrame(animFrame, canvas);
+            onTimer();
+        }, 1000 / fps);
+    }
+
+    function onTimer() {
+        var t1 = new Date().getTime();
+        dt = 0.001 * (t1 - t0);
+        t0 = t1;
+        //与前一帧间隔时长大于0.2秒，视为状态不变
+        if (dt > 0.2) {
+            dt = 0;
+        }
+        t += dt;
+        move();
+    }
+
+    function move() {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        for (var i = 0; i < particles.length; i++) {
+            var particle = particles[i];
+            modifyObject(particle, i);
+            moveObject(particle);
+            acc = updateAccel(particle);
+            updateVelo(acc, particle);
+        }
+    }
+
+    function createNewParticles(ppos, r, g, b) {
+        for (var i = 0; i < numSparks; i++) {
+            var newParticle = new Spark(2, r, g, b, 1, 1);
+            newParticle.pos2D = ppos;
+            newParticle.velo2D = new Vector2D((Math.random() - 0.5) * vx, (Math.random() - 0.5) * vy);
+            newParticle.lifetime = minLife + (maxLife - minLife) * Math.random();
+            particles.push(newParticle);
+        }
+    }
+
+    function modifyObject(obj, i) {
+        obj.alpha += -0.01;
+        obj.age += dt;
+        if (obj.age > obj.lifetime) {
+            if (t < duration) {
+                explode(obj);
+            }
+            removeObject(i);
+        }
+    }
+
+    function explode(obj) {
+        createNewParticles(obj.pos2D, 255, 0, 255);
+    }
+
+    function removeObject(num) {
+        particles.splice(num, 1);
+    }
+
+    function moveObject(obj) {
+        //速度 v=dr/dt
+        obj.pos2D = obj.pos2D.addScaled(obj.velo2D, dt);
+        obj.draw(context);
+    }
+
+    function updateAccel(obj) {
+        var gravity = Forces.constantGravity(obj.mass, g);
+        var drag = Forces.drag(k, obj.velo2D);
+        force = Forces.add([gravity, drag]);
+
+        //阻力加速度 a=F(合力)/M=dv/dt;
+        return force.multiply(1 / obj.mass);
+    }
+
+    function updateVelo(acc, obj) {
+        //最终速度 v=v0+dv
+        obj.velo2D = obj.velo2D.addScaled(acc, dt);
+    }
+    </script>
+</body>
+
+</html>
